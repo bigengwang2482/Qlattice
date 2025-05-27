@@ -14,12 +14,14 @@ int main(int argc, char* argv[])
 
   inputpara in;begin_Lat(&argc, &argv, in);
 
+  // Set up lattice sizes
   int nx,ny,nz,nt;
   nx = in.nx;
   ny = in.ny;
   nz = in.nz;
   nt = in.nt;
 
+  // Set up ckpoint for mode of execution
   int ckpoint = 1;
   in.find_para(std::string("ckpoint"), ckpoint);
 
@@ -73,7 +75,6 @@ int main(int argc, char* argv[])
       for(int i=0;i<4;i++){mom_shiftL[momi][i] = stringtonum(Li[momi*4 + i]);}
     }
   }
-  //const Coordinate mom_shift = string_to_Coordinate(mom_shift_);
 
   std::string mom_smear_ = std::string("NONE");
   in.find_para(std::string("mom_smear"), mom_smear_);
@@ -110,7 +111,6 @@ int main(int argc, char* argv[])
     sprintf(rbc_conf,in.Link_name.c_str(), icfg);
     load_gwu_link(rbc_conf, gf);
     if(in.anti_peri == 1){twist_boundary_at_boundary(gf, -0.5, 3);}
-    /////set_left_expanded_gauge_field(gfD, gf);
   }
   /////========load links
   int nmass_group = in.nmass;qassert(nmass_group > 0);
@@ -126,20 +126,16 @@ int main(int argc, char* argv[])
     qlat::prepare_gauge_buffer(gfL, gf);
   }
 
-  ////qprop tmpa;tmpa.init(geo);
-  ////print0("vol %ld %ld \n", geo.local_volume(), Long(qlat::get_data_size(tmpa)));
-
+  
   ////===load eigen
   print_time();
   fflush_MPI();
-  ////fft_desc_basic fd(geo);
   fft_desc_basic& fd = get_fft_desc_basic_plan(geo);
   eigen_ov ei(geo, n_vec, in.bini, nmass_group + 1);
 
   if(src_step != sink_step)
   {
     do_point_sink = 0;
-    //Qassert(do_point_sink == 0);// eigen system too large!
   }
 
   fflush_MPI();
@@ -147,10 +143,8 @@ int main(int argc, char* argv[])
   char ename[500];
   sprintf(ename, in.Ename.c_str(),icfg);
 
-  /////ei.load_eigen(std::string(ename));
   {
     char enamev[600];
-    ////sprintf(ename, "%s", ov_evecname);
     sprintf(enamev,"%s.eigvals", ename);
     print0("Vector File name: %s \n", ename );
     print0("Values File name: %s \n", enamev);
@@ -175,12 +169,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  //if(src_step != 0)
-  //{
-  //  sprintf(ename, in.Ename_Sm.c_str(),icfg);
-  //  ei.smear_eigen(std::string(ename), gf, src_width, src_step, mom_smear);
-  //  mode_sm = 2;
-  //}
   print_time();
 
   qnoi noi;noi.init(geo);
@@ -224,8 +212,6 @@ int main(int argc, char* argv[])
     ei.print_info();
     print0("Low eigen done. \n");
     ////===load eigen
-
-    ////size_t Nvol = geo.local_volume();
 
     char key_T[1000], dimN[1000];
     if(sink_step!=0){sprintf(key_T, "%d   %d    %d   %d  %d  %d %d", in.nsource, 2, 3, 32, int(massL.size()), in.nt,2);}
@@ -308,8 +294,6 @@ int main(int argc, char* argv[])
           print0("mgroup %2d, source %3d, mass %3d ", int(jobi), si, im);
           print_norm2(FpropV[im]);
         }
-        ////double sum = check_sum_prop(FpropV[im]);
-        ////print0("===checksum %s %.8e \n", namep, sum);
       }
       /////===load noise and prop
 
@@ -393,13 +377,6 @@ int main(int argc, char* argv[])
         }else{
           smear_propagator_gwu_convension_2shift(FpropV[im], gfL, sink_width, sink_step, propS, -1, mom_smear);
         }
-        //copy_noise_to_prop(FpropV[im], prop4d, 1);
-
-        //smear_propagator_gwu_convension(prop4d, gf, width, step);
-        //smear_propagator_gwu_convension(FpropV[im], gf, width, step);
-
-        //copy_noise_to_prop(FpropV[im], prop4dS, 1);
-        //diff_prop(prop4dS, prop4d);
         }
 
         if(save_vecs_vec){
@@ -432,7 +409,7 @@ int main(int argc, char* argv[])
 
   if(sleep_for_final == 1){
     print0("SLEEPPING!!!\n");
-    sleep(30);// some weild writting error at final loop
+    sleep(30);// some weird writting error at final loop
   }
   fflush_MPI();
 

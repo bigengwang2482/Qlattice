@@ -179,17 +179,18 @@ int main(int argc, char* argv[])
     }
     /////========load overlap eigensystem ends========
 
-
+    /*=====================SECTION III-2 SPLITED JOBS=====================*/
     /////========splited contraction jobs according to masses starts========
     print_time();
 
-    qnoi noi;noi.init(geo);
-    Propagator4dT<Ftype > tmp;tmp.init(geo);
+    qnoi noi;noi.init(geo); // Temporary holder for loading noise field.
+    Propagator4dT<Ftype > tmp;tmp.init(geo); // Temporary holder for loading quark propagators.
 
     for(LInt jobi=0;jobi < mass_jobA.size()/2; jobi++)
     {
       Long bji = mass_jobA[jobi*2 + 0]; Long bcut = mass_jobA[jobi*2+1];
-
+      /*=====================SECTION III-2A SPLITED JOB PARAMETERS=====================*/
+      /////========Set up local splited job parameters starts========
       std::string outputG = in.output;
       std::string out_vec_sinkG = out_vec_sink;
       std::string out_vec_momG  = out_vec_mom ;
@@ -220,18 +221,24 @@ int main(int argc, char* argv[])
       for(int mi=0;mi<bcut;mi++){
         massL.push_back(in.masses[mi + bji]);
       }
+      /////========Set up local splited job parameters ends========
+
+      /////========init local low-mode eigen propagators starts========
       ei.initialize_mass(massL, 12);
       ei.print_info();
       print0("Low eigen done. \n");
-      ////===load eigen
+      /////========init local low-mode eigen propagators ends========
 
+
+      /////========init local correlators' dimensions starts========
+      // Set up dimension info
       char key_T[1000], dimN[1000];
       if(sink_step!=0){sprintf(key_T, "%d   %d    %d   %d  %d  %d %d", in.nsource, 2, 3, 32, int(massL.size()), in.nt,2);}
       else{sprintf(key_T, "%d   %d    %d   %d  %d  %d %d", in.nsource, 1, 3, 32, int(massL.size()), in.nt,2);}
       sprintf(dimN , "src  sm  LHF operator masses nt complex");
 
       std::string  INFO_Mass = mass_to_string(massL);
-
+      // Set up correlator with dimension info created above
       corr_dat<Ftype > res(std::string(""));
       if(outputG != std::string("NONE")){
         std::string ktem(key_T);
@@ -239,11 +246,15 @@ int main(int argc, char* argv[])
         res.create_dat(ktem, dtem);
         res.print_info();
       }
+      /////========init local correlators' dimensions ends========
       
-      /////===load noise and prop
+      
+      /*=====================SECTION III-2B LOOP OVER PROPAGATORS OF GRID SOURCES=====================*/
+      /////========Set up holders variables to be overwritten in loops starts========
       char names[450],namep[500], names_vec[450], names_mom[450], names_sparse[450];
-      std::vector<qprop > FpropV;FpropV.resize(0);FpropV.resize(bcut);
+      std::vector<qprop > FpropV;FpropV.resize(0);FpropV.resize(bcut); // A vector to hold propagators
       lms_para<Complexq > srcI;/////buffers and parameters for lms
+      /////========Set up holders variables to be overwritten in loops ends========
       print_time();
       for(int si = 0; si < in.nsource; si++)
       {
@@ -254,6 +265,7 @@ int main(int argc, char* argv[])
         }
         fflush_MPI();
 
+        /////===load noises 
         if(out_vec_sinkG != std::string("NONE") and ckpoint == 1){
           const size_t vol = size_t(fd.nx) * fd.ny * fd.nz * fd.nt;
           int flag_do_job = 0;
@@ -286,7 +298,9 @@ int main(int argc, char* argv[])
 
         load_gwu_noi(names, noi);
         print0("%s \n", names);
+        /////===load noises 
 
+        /////===load high-mode propagators
         for(int im=0;im<bcut;im++)
         {
           sprintf(names, in.propN[si].c_str(),icfg);
@@ -307,8 +321,10 @@ int main(int argc, char* argv[])
             print_norm2(FpropV[im]);
           }
         }
-        /////===load noise and prop
+        /////===load high-mode propagators
 
+
+        /////========Set up output options starts========
         bool save_vecs_vec = false;
         bool save_vecs_mom = false;
         bool save_sparse_prop = false;
@@ -325,7 +341,12 @@ int main(int argc, char* argv[])
           sprintf(names_sparse, out_vec_sparseG.c_str(), icfg, si);
           save_sparse_prop = true;
         }
+        /////========Set up output options ends========
 
+
+
+        
+        /////========Set up srcI with general options for LMS starts========
         srcI.init();
         srcI.do_all_low = in.do_all_low;
         srcI.lms      = in.lms;
@@ -366,14 +387,20 @@ int main(int argc, char* argv[])
         if(outputG == std::string("NONE")){
           srcI.save_zero_corr = 0;
         }
+        /////========Set up srcI with general options for LMS ends========
 
+
+        /*=====================SECTION III-2B-a CORE LMS CONTRACTION: WITHOUT SINK SMEARING=====================*/
         // point sink
         if(do_point_sink == 1){
+          /////========CONTRACTON EXECUTION 1: without hadron sink smearing========
           point_corr(noi, FpropV, massL, ei, fd, res, srcI, mdat, 1);
         }
 
+        /*=====================SECTION III-2B-b CORE LMS CONTRACTION: WITH SINK SMEARING=====================*/
         if(sink_step != 0 or do_point_sink == 0)
         {
+          /////========Set up srcI with hadron sink-smearing options for LMS starts========
           srcI.lms      = in.lms;
           srcI.combineT = in.combineT;
           srcI.mode_eig_sm = 3;
@@ -404,7 +431,9 @@ int main(int argc, char* argv[])
           if(save_sparse_prop){
             srcI.name_sparse_prop = ssprintf("%s.sm.sparse", names_sparse);
           }
+          /////========Set up srcI with hadron sink-smearing options for LMS ends========
 
+          /////========CONTRACTON EXECUTION 2: with hadron sink smearing================
           point_corr(noi, FpropV, massL, ei, fd, res, srcI, mdat, 1);
         }
       }
